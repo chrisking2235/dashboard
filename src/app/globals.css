@@ -1,26 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-background: #000000;
+  --color-foreground: #ffffff;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: 'Noto Sans KR', sans-serif;
+    @apply antialiased tabular-nums;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Hide scrollbar */
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .font-pixel {
+    font-family: 'Press Start 2P', monospace;
+  }
+
+  /* Highly optimized CSS Mask Wave Background */
+  .bg-dot-wave {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -16px -16px;
+
+    /* Default Mobile setup (Vertical Wave for tall screens) */
+    -webkit-mask-image: linear-gradient(180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 15%,
+        rgba(255, 255, 255, 0.3) 35%,
+        rgba(255, 255, 255, 1) 50%,
+        rgba(255, 255, 255, 0.3) 65%,
+        rgba(255, 255, 255, 0.05) 85%,
+        rgba(255, 255, 255, 0) 100%);
+    mask-image: linear-gradient(180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 15%,
+        rgba(255, 255, 255, 0.3) 35%,
+        rgba(255, 255, 255, 1) 50%,
+        rgba(255, 255, 255, 0.3) 65%,
+        rgba(255, 255, 255, 0.05) 85%,
+        rgba(255, 255, 255, 0) 100%);
+
+    -webkit-mask-size: 100vw 200vh;
+    mask-size: 100vw 200vh;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+
+    animation: mask-wave-mobile 7s infinite linear;
+    transform: translateZ(0);
+    /* Forcing GPU rendering layer */
+  }
+
+  /* Desktop setup (Diagonal Wave for wide screens) */
+  @media (min-width: 768px) {
+    .bg-dot-wave {
+      -webkit-mask-image: linear-gradient(135deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.05) 15%,
+          rgba(255, 255, 255, 0.3) 35%,
+          rgba(255, 255, 255, 1) 50%,
+          rgba(255, 255, 255, 0.3) 65%,
+          rgba(255, 255, 255, 0.05) 85%,
+          rgba(255, 255, 255, 0) 100%);
+      mask-image: linear-gradient(135deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.05) 15%,
+          rgba(255, 255, 255, 0.3) 35%,
+          rgba(255, 255, 255, 1) 50%,
+          rgba(255, 255, 255, 0.3) 65%,
+          rgba(255, 255, 255, 0.05) 85%,
+          rgba(255, 255, 255, 0) 100%);
+
+      -webkit-mask-size: 150vw 150vh;
+      mask-size: 150vw 150vh;
+      animation: mask-wave-desktop 7s infinite linear;
+    }
+  }
+
+  /* Mobile animation offsets (Vertical translation) */
+  @keyframes mask-wave-mobile {
+    0% {
+      -webkit-mask-position: 0vw -200vh;
+      mask-position: 0vw -200vh;
+    }
+
+    100% {
+      -webkit-mask-position: 0vw 100vh;
+      mask-position: 0vw 100vh;
+    }
+  }
+
+  /* Desktop animation offsets (Diagonal translation) */
+  @keyframes mask-wave-desktop {
+    0% {
+      -webkit-mask-position: -150vw -150vh;
+      mask-position: -150vw -150vh;
+    }
+
+    100% {
+      -webkit-mask-position: 100vw 100vh;
+      mask-position: 100vw 100vh;
+    }
+  }
+
+  .pixel-border {
+    border: 2px solid white;
+    box-shadow: 4px 4px 0px 0px rgba(255, 255, 255, 0.2);
+  }
+
+  .pixel-border-hover:hover {
+    box-shadow: 4px 4px 0px 0px rgba(255, 255, 255, 0.8);
+    transform: translate(-2px, -2px);
+  }
 }

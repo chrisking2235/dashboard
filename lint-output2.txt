@@ -1,0 +1,43 @@
+
+> binance-dashboard@0.1.0 lint
+> eslint
+
+
+C:\Users\chris\.gemini\antigravity\scratch\binance-dashboard\src\components\RollingNumber.tsx
+  27:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\chris\.gemini\antigravity\scratch\binance-dashboard\src\components\RollingNumber.tsx:27:13
+  25 |
+  26 |         if (value > actualPrevValue) {
+> 27 |             setDirection("up");
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |             setGlowState("up");
+  29 |         } else if (value < actualPrevValue) {
+  30 |             setDirection("down");  react-hooks/set-state-in-effect
+
+C:\Users\chris\.gemini\antigravity\scratch\binance-dashboard\src\components\Starfield.tsx
+  18:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\chris\.gemini\antigravity\scratch\binance-dashboard\src\components\Starfield.tsx:18:9
+  16 |             speed: 1 + Math.random() * 1.5
+  17 |         }));
+> 18 |         setParticles(arr);
+     |         ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |     }, []);
+  20 |
+  21 |     return (  react-hooks/set-state-in-effect
+
+??2 problems (2 errors, 0 warnings)
+
