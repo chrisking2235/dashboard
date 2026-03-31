@@ -32,10 +32,8 @@ export function RiskCalculator() {
     const handleSaveProportion = () => {
         const slVal = parseFloat(stopLossPercent) || 0;
         if (slVal > 0) {
-            const exactLcv = 100 / slVal;
-            const rLcv = Math.min(maxLeverage, Math.max(1, Math.round(exactLcv)));
-            const newRisk = tempProportion / rLcv;
-            setRiskPercent(newRisk.toFixed(2));
+            const newRisk = (tempProportion * slVal) / 100;
+            setRiskPercent(Number(newRisk.toFixed(4)).toString());
         }
         setShowProportionModal(false);
     };
