@@ -15,26 +15,39 @@ export function RiskCalculator() {
     // Proportion Modal States
     const [showProportionModal, setShowProportionModal] = useState(false);
     const [tempProportion, setTempProportion] = useState(25);
+    const [maxProportion, setMaxProportion] = useState(25);
 
     useEffect(() => {
-        const saved = localStorage.getItem("risk_capital");
-        if (saved) setTotalCapital(saved);
+        const savedCapital = localStorage.getItem("risk_capital");
+        if (savedCapital) setTotalCapital(savedCapital);
+        
+        const savedRisk = localStorage.getItem("risk_percent");
+        if (savedRisk) setRiskPercent(savedRisk);
+        
+        const savedSL = localStorage.getItem("risk_sl");
+        if (savedSL) setStopLossPercent(savedSL);
+        
+        const savedLev = localStorage.getItem("risk_lev");
+        if (savedLev) setMaxLeverage(parseInt(savedLev));
+        
+        const savedProp = localStorage.getItem("risk_prop");
+        if (savedProp) setMaxProportion(parseInt(savedProp));
     }, []);
 
     const handleSaveCapital = () => {
         if (totalCapital && !isNaN(parseFloat(totalCapital))) {
             localStorage.setItem("risk_capital", totalCapital);
+            localStorage.setItem("risk_percent", riskPercent);
+            localStorage.setItem("risk_sl", stopLossPercent);
+            localStorage.setItem("risk_lev", maxLeverage.toString());
+            localStorage.setItem("risk_prop", maxProportion.toString());
             setIsSaved(true);
             setTimeout(() => setIsSaved(false), 2000);
         }
     };
 
     const handleSaveProportion = () => {
-        const slVal = parseFloat(stopLossPercent) || 0;
-        if (slVal > 0) {
-            const newRisk = (tempProportion * slVal) / 100;
-            setRiskPercent(Number(newRisk.toFixed(4)).toString());
-        }
+        setMaxProportion(tempProportion);
         setShowProportionModal(false);
     };
 
@@ -50,30 +63,50 @@ export function RiskCalculator() {
     let targetProportion = 0;
     let targetPositionSize = 0;
     let sizeDiff = 0;
+    let hitProportionLimit = false;
 
     if (capital > 0 && risk > 0 && sl > 0) {
         const exactRiskAmount = capital * (risk / 100);
 
-        // 완벽한 이론적 목표 포지션 규모 (원래 들어가야 할 규모)
-        targetPositionSize = exactRiskAmount / (sl / 100);
-        targetProportion = (targetPositionSize / capital) * 100;
+        // 절대 깨지지 않는 목표 포지션 (리스크와 손절로 완벽히 고정)
+        let exactPositionSize = exactRiskAmount / (sl / 100);
+        
+        // 유저가 설정한 증거금 한도 (Max Margin)
+        const maxAllowedMargin = capital * (maxProportion / 100);
 
-        // 이론적 레버리지 및 유저 보정 적용
-        exactLeverage = 100 / sl;
-        roundedLeverage = Math.min(maxLeverage, Math.max(1, Math.round(exactLeverage)));
+        // 증거금을 최대한 타겟 한도(예: 25%)에 부풀려서 꽉 채우기 위한 '최소 레버리지'
+        const minReqLeverage = exactPositionSize / maxAllowedMargin;
+        
+        // 특별한 하한선(최소 1x) 외에는 무조건 증거금 타겟에 맞춤!
+        let calcLeverage = Math.max(1, minReqLeverage);
 
-        // 목표 포지션을 맞추기 위해 증거금(시드)을 올리거나 내림 -> 현실적으로 '정수' 달러 단위로 투입
-        requiredMargin = Math.round(targetPositionSize / roundedLeverage);
+        // Max Leverage 설정으로 레버리지 캡 씌우기
+        roundedLeverage = Math.min(maxLeverage, Math.max(1, Math.round(calcLeverage)));
+
+        // 레버리지가 적용된 1차 증거금
+        requiredMargin = exactPositionSize / roundedLeverage;
+
+        // 만약 맥스 레버리지를 썼는데도 증거금 한도를 초과하면? -> 포지션 깎아야함 (극단적 예외 케이스)
+        if (requiredMargin > maxAllowedMargin) {
+            requiredMargin = maxAllowedMargin;
+            exactPositionSize = requiredMargin * roundedLeverage;
+            hitProportionLimit = true;
+        }
+
+        // 증거금은 정수로 환산
+        requiredMargin = Math.round(requiredMargin);
         if (requiredMargin < 1) requiredMargin = 1;
 
-        // 최종 실질 진입 포지션 규모 (보정된 레버리지 * 정수 증거금 적용)
+        // 최종 포지션
         actualPositionSize = requiredMargin * roundedLeverage;
-
+        
         // 최종 실질 확정 손실률 (실제 잃는 돈)
         const actualLossAmount = actualPositionSize * (sl / 100);
         actualRiskPercent = (actualLossAmount / capital) * 100;
 
-        sizeDiff = actualPositionSize - targetPositionSize;
+        targetPositionSize = actualPositionSize;
+        targetProportion = (targetPositionSize / capital) * 100;
+        sizeDiff = (exactRiskAmount / (sl / 100)) - actualPositionSize;
     }
 
     const formatNumber = (val: number, decimals: number = 2) =>
@@ -116,7 +149,7 @@ export function RiskCalculator() {
                                     : 'bg-black text-white hover:bg-white hover:text-black border-white/20 hover:border-white'
                                     }`}
                             >
-                                {isSaved ? 'SAVED' : 'SAVE'}
+                                {isSaved ? 'SAVED' : 'SAVE ALL'}
                             </button>
                         </div>
 
@@ -168,7 +201,7 @@ export function RiskCalculator() {
                         <div className="w-full">
                             <label className="flex items-center gap-2 text-xs md:text-sm text-gray-300 mb-3 xl:mb-5 font-bold tracking-widest cursor-default">
                                 <ShieldAlert className="w-4 h-4 xl:w-5 xl:h-5" />
-                                최대 허용 리스크
+                                허용 리스크 (1회 트레이드)
                             </label>
                             <div className="flex items-center bg-black border border-white/20 transition-all focus-within:border-white h-[48px] xl:h-[56px] px-4 group-hover:border-white/40">
                                 <input
@@ -182,7 +215,7 @@ export function RiskCalculator() {
                             </div>
                         </div>
                         <p className="hidden xl:block text-[11px] xl:text-xs text-gray-500 font-medium leading-relaxed mt-4 xl:mt-5 break-keep">
-                            전체 시드 대비 1회 최대 손실 허용치.
+                            1번의 트레이드 매매 당 전체 시드 대비 감수할 리스크 범위.
                         </p>
                     </motion.div>
 
@@ -191,7 +224,7 @@ export function RiskCalculator() {
                         <div className="w-full">
                             <label className="flex items-center gap-2 text-xs md:text-sm text-gray-300 mb-3 xl:mb-5 font-bold tracking-widest cursor-default">
                                 <TrendingDown className="w-4 h-4 xl:w-5 xl:h-5" />
-                                목표 손절 기준
+                                차트 손절 라인
                             </label>
                             <div className="flex items-center bg-black border border-white/20 transition-all focus-within:border-white h-[48px] xl:h-[56px] px-4 group-hover:border-white/40">
                                 <input
@@ -205,7 +238,7 @@ export function RiskCalculator() {
                             </div>
                         </div>
                         <p className="hidden xl:block text-[11px] xl:text-xs text-gray-500 font-medium leading-relaxed mt-4 xl:mt-5 break-keep">
-                            포지션 진입 시 손절매가 실행될 구간.
+                            차트(현물) 상에서 손절이 나가는 실제 가격 하락 퍼센트.
                         </p>
                     </motion.div>
                 </div>
@@ -246,16 +279,10 @@ export function RiskCalculator() {
                                             <RollingNumber value={formatNumber(actualPositionSize)} className="font-bold tracking-tight" />
                                         </div>
 
-                                        <div className="flex items-center gap-3 mt-4 text-[11px] md:text-xs font-bold tracking-wide">
-                                            <span className="text-gray-500 cursor-default">전체 시드 대비 비중:</span>
-                                            <span
-                                                onClick={() => {
-                                                    setTempProportion(Math.round((actualPositionSize / capital) * 100));
-                                                    setShowProportionModal(true);
-                                                }}
-                                                className={`px-2 py-1 flex items-baseline justify-center gap-1 border cursor-pointer hover:bg-white/20 hover:border-white transition-all ${actualRiskPercent > risk ? 'border-white text-white' : 'border-white/30 text-white/70'}`}
-                                            >
-                                                <RollingNumber value={formatNumber((actualPositionSize / capital) * 100)} className="font-bold validate-cutoff" />
+                                        <div className="flex items-center gap-3 mt-4 text-[11px] md:text-xs tracking-wide">
+                                            <span className="text-gray-500 font-bold cursor-default">총자산 대비 포지션 비율:</span>
+                                            <span className="text-white/70 font-bold px-2 py-1 flex items-baseline gap-1">
+                                                <RollingNumber value={formatNumber(targetProportion)} />
                                                 <span>%</span>
                                             </span>
                                         </div>
@@ -276,12 +303,28 @@ export function RiskCalculator() {
                                         </div>
 
                                         <div className="flex flex-col justify-start">
-                                            <div className="text-gray-400 text-[10px] md:text-xs mb-2 font-bold tracking-widest uppercase">
-                                                필요 증거금 (MARGIN)
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="text-gray-400 text-[10px] md:text-xs font-bold tracking-widest uppercase">
+                                                    필요 증거금 (MARGIN)
+                                                </div>
+                                                <span
+                                                    onClick={() => {
+                                                        setTempProportion(maxProportion);
+                                                        setShowProportionModal(true);
+                                                    }}
+                                                    className="text-[10px] font-bold tracking-widest cursor-pointer hover:bg-white/20 hover:text-white transition-all border border-white/30 text-white/50 px-1.5 py-0.5 rounded-sm"
+                                                    title="클릭하여 증거금 진입 한도 설정"
+                                                >
+                                                    MAX {maxProportion}%
+                                                </span>
                                             </div>
                                             <div className="text-2xl xl:text-4xl text-white font-bold tracking-tight flex items-start gap-1 mt-1">
                                                 <span className="text-sm xl:text-base text-gray-400 font-bold mt-0.5 xl:mt-1 mr-0.5">$</span>
                                                 <RollingNumber value={formatNumber(requiredMargin)} className="font-bold tracking-tight leading-none" />
+                                            </div>
+                                            <div className="text-[11px] text-gray-400 mt-2 font-medium">
+                                                <span className="mr-1">진입 비중:</span>
+                                                <span className="text-white font-bold">{formatNumber((requiredMargin / capital) * 100)}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -304,18 +347,24 @@ export function RiskCalculator() {
                     {/* Notice */}
                     <div className="mt-auto xl:pt-6 w-full">
                         {capital > 0 && risk > 0 && sl > 0 && (
-                            <div className="text-[11px] md:text-xs text-gray-400 leading-relaxed bg-white/5 p-4 border-l-2 border-white cursor-default w-full mt-6 xl:mt-0">
-                                <span className="text-white font-bold">INFO: </span>
-                                {Math.abs(sizeDiff) > 0.1 ? (
-                                    <>
-                                        설정된 목표 비중(<span className="font-bold text-white mx-1">{formatNumber(targetProportion)}%</span>) 환산 시 이상적인 포지션 규모는 <span className="font-bold text-white mx-1">{formatNumber(targetPositionSize)} USDT</span> 이나, <br />
-                                        레버리지 제한(<span className="font-bold text-white">{roundedLeverage}x</span>) 요건을 맞추기 위해 투입 증거금이 <b>{formatNumber(requiredMargin)} USDT</b>로 최적화되었습니다. <br />
-                                        이에 따라 최종 포지션 규모가 타겟 대비 <span className="text-white font-bold">{formatNumber(Math.abs(sizeDiff))} USDT</span> 만큼 <b>{sizeDiff > 0 ? '상향' : '하향'}</b> 보정되었습니다.
-                                    </>
-                                ) : (
-                                    <>
-                                        설정된 목표 비중 환산 시 이상적인 포지션 규모({formatNumber(targetPositionSize)} USDT)와 오차 없이 일치하는 최적화 세팅입니다. 레버리지 및 증거금 산출 과정에서 추가적인 볼륨 스케일링(상/하향 보정)이 발생하지 않았습니다.
-                                    </>
+                            <div className="text-[11px] md:text-xs text-gray-400 leading-relaxed bg-white/5 p-4 border-l-2 border-white cursor-default w-full mt-6 xl:mt-0 flex flex-col gap-2">
+                                <div>
+                                    <span className="text-white font-bold">INFO: </span>
+                                    {Math.abs(sizeDiff) > 0.1 ? (
+                                        <>
+                                            설정된 목표 비중(<span className="font-bold text-white mx-1">{formatNumber(targetProportion)}%</span>) 환산 시 이상적인 포지션 규모는 <span className="font-bold text-white mx-1">{formatNumber(targetPositionSize)} USDT</span> 이나, <br />
+                                            레버리지 제한(<span className="font-bold text-white">{roundedLeverage}x</span>) 요건을 맞추기 위해 투입 증거금이 <b>{formatNumber(requiredMargin)} USDT</b>로 최적화되었습니다. 이에 따라 최종 포지션 규모가 타겟 대비 <span className="text-white font-bold">{formatNumber(Math.abs(sizeDiff))} USDT</span> 만큼 <b>{sizeDiff > 0 ? '상향' : '하향'}</b> 보정되었습니다.
+                                        </>
+                                    ) : (
+                                        <>
+                                            설정된 목표 비중 환산 시 이상적인 포지션 규모({formatNumber(targetPositionSize)} USDT)와 오차 없이 일치하는 최적화 세팅입니다. 추가적인 볼륨 스케일링이 발생하지 않았습니다.
+                                        </>
+                                    )}
+                                </div>
+                                {hitProportionLimit && (
+                                    <div className="text-red-400/80">
+                                        <span className="font-bold">NOTICE: </span>최대 제공 가능한 레버리지를 초과하여, '최대 증거금 진입 비율({maxProportion}%)' 제약을 맞추기 위해 불가피하게 포지션 사이즈가 하향 보정되었습니다. (실 위험 손실: {formatNumber(actualRiskPercent, 3)}%)
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -341,16 +390,16 @@ export function RiskCalculator() {
                                 <X className="w-5 h-5" />
                             </button>
 
-                            <h3 className="text-sm font-bold tracking-widest text-white mb-6 uppercase">Target Proportion</h3>
+                            <h3 className="text-sm font-bold tracking-widest text-white mb-6 uppercase">Margin Proportion Limit</h3>
 
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-gray-400 text-xs font-bold tracking-widest">목표 시드 비중 설정</span>
+                                <span className="text-gray-400 text-xs font-bold tracking-widest">차트 1회 당 증거금 진입 한도</span>
                                 <span className="text-white font-mono font-bold text-xl">{tempProportion}%</span>
                             </div>
 
                             <input
                                 type="range"
-                                min="0"
+                                min="1"
                                 max="100"
                                 step="1"
                                 value={tempProportion}
@@ -358,12 +407,12 @@ export function RiskCalculator() {
                                 className="w-full h-1 bg-white/20 rounded-none appearance-none cursor-pointer outline-none hover:bg-white/40 transition-all [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-none"
                             />
                             <div className="flex justify-between mt-3 text-[10px] text-gray-500 font-mono font-bold uppercase tracking-widest">
-                                <span>0%</span>
+                                <span>1%</span>
                                 <span>100%</span>
                             </div>
 
                             <p className="text-[11px] text-gray-500 leading-relaxed break-keep mt-5 mb-8">
-                                설정하신 목표 비중에 맞추어, <b>최대 허용 리스크 (Risk%)</b> 수치를 시스템이 안전하게 역산하여 자동 보정합니다.
+                                다중 매매 운용을 위해, 1번의 트레이드에 <b>실제 투입되는 내 돈(증거금)</b>이 전체 시드의 특정 비율을 넘지 않도록 제한합니다. 이 비율을 맞추기 위해 자동으로 레버리지를 조절합니다.
                             </p>
 
                             <div className="flex gap-3 w-full">
